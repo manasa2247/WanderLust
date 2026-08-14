@@ -1,0 +1,27 @@
+ <% if(success && success.length){ %> <!--if success then only it prints -->
+    <div class="alert alert-success alert-dismissable fade show col-6 offset-3" role="alert">
+        <%= success %>
+        <button 
+            type="button" 
+            class="btn-close" 
+            data-bs-dismiss="alert"  
+            aria-label="Close"
+        ></button>
+    </div>
+<% } %>
+
+<!---why both success and success.length both in if conditon??
+coz the by default success is a empty array[so always not null] [situated inside req.locals as we are creaing it by writing res.locals.success] -->
+
+
+ <% if(error && error.length){ %> <!--if error then only it prints -->
+    <div class="alert alert-danger alert-dismissable fade show col-6 offset-3" role="alert">
+        <%= error %>
+        <button 
+            type="button" 
+            class="btn-close" 
+            data-bs-dismiss="alert"  
+            aria-label="Close"
+        ></button>
+    </div>
+<% } %>

@@ -1,0 +1,238 @@
+<style>
+  .search-btn{
+    background-color: #fe424d;
+    color: #ffff;
+    border-radius: 25px;
+    padding: 0 1rem 0 1rem;
+  }
+  .search-btn:hover{
+    background-color: #fe424d;
+    color: #ffff;
+  }
+  .search-btn i {
+    display : inline;
+    margin-right: 0.5rem;
+  }
+  .search-input {
+    border-radius : 25px;
+    padding : 0.5rem 3rem 0.5rem 3rem;
+    font-size: 1rem;
+  }
+</style>
+
+<nav class="navbar navbar-expand-md bg-body-light border-bottom sticky-top">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="/listings"><i class="fa-solid fa-compass"></i></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavAltMarkup" >
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+      <div class="navbar-nav">
+        <a class="nav-link" href="/listings">Explore</a>  
+      </div>
+      <div class="navbar-nav ms-auto">
+          <form class="d-flex"
+              role="search"
+              action="/listings"
+              method="GET">
+
+            <input
+                class="form-control me-2 search-input"
+                type="search"
+                name="search"
+                placeholder="Search destinations"
+                value="<%= typeof search !== 'undefined' ? search : '' %>"
+            />
+
+            <button class="btn search-btn" type="submit">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                Search
+            </button>
+          </form>
+      </div>
+
+      <div class="navbar-nav ms-auto"> <!--currUser cmg from app.js by a middleware-->
+        <a class="nav-link" href="/listings/new">Add New Listing</a>
+        <% if(!currUser){ %> <!-- means when user is not logged in req.user = undefined then we will show sigup and login  -->
+            <!--if user is loggedin then req.user = user object,so then we will only show logout -->
+            <a class="nav-link active" href="/signup"><b>Sign up</b></a>
+            <a class="nav-link" href="/login"><b>Log in</b></a>
+        <% } %>
+        <% if(currUser){ %>
+        <a class="nav-link" href="/logout"><b>Log out</b></a>   
+        <% } %> 
+      </div>
+  </div>
+</nav>
+
+<!-- ADDED: Responsive navbar/search-suggestion styles -->
+<style>
+  .navbar form[role="search"] {
+    position: relative;
+  }
+
+  .search-suggestions {
+    position: absolute;
+    top: calc(100% + 0.4rem);
+    left: 0;
+    right: 0;
+    z-index: 1050;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    box-shadow: 0 5px 18px rgba(0,0,0,0.12);
+    overflow: hidden;
+  }
+
+  .search-suggestion-item {
+    display: block;
+    width: 100%;
+    padding: 0.7rem 1rem;
+    border: 0;
+    background: #fff;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .search-suggestion-item:hover,
+  .search-suggestion-item:focus {
+    background: #f5f5f5;
+    outline: none;
+  }
+
+  @media (max-width: 767px) {
+    .navbar {
+      height: auto !important;
+    }
+
+    .navbar form[role="search"] {
+      width: 100%;
+      margin-top: 0.75rem;
+      margin-bottom: 0.75rem;
+      flex-wrap: nowrap;
+    }
+
+    .navbar form[role="search"] .search-input {
+      min-width: 0;
+      width: 100%;
+    }
+
+    .navbar form[role="search"] .search-btn {
+      flex: 0 0 auto;
+    }
+
+    .search-suggestions {
+      left: 0;
+      right: 0;
+    }
+  }
+
+  @media (max-width: 400px) {
+    .search-btn {
+      padding: 0 0.75rem;
+    }
+
+    .search-btn i {
+      margin-right: 0;
+    }
+
+    .search-btn {
+      font-size: 0;
+    }
+
+    .search-btn i {
+      font-size: 1rem;
+    }
+  }
+</style>
+
+<!-- ADDED: Search suggestions behavior -->
+<script>
+(() => {
+  const searchInput = document.querySelector('.search-input');
+  const searchForm = document.querySelector('form[role="search"]');
+
+  if (!searchInput || !searchForm) return;
+
+  const suggestionsBox = document.createElement('div');
+  suggestionsBox.className = 'search-suggestions';
+  suggestionsBox.style.display = 'none';
+  searchForm.appendChild(suggestionsBox);
+
+  let timer;
+  let requestId = 0;
+
+  const hideSuggestions = () => {
+    suggestionsBox.innerHTML = '';
+    suggestionsBox.style.display = 'none';
+  };
+
+  const showSuggestions = (suggestions) => {
+    suggestionsBox.innerHTML = '';
+
+    if (!suggestions.length) {
+      hideSuggestions();
+      return;
+    }
+
+    suggestions.forEach((suggestion) => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'search-suggestion-item';
+      item.innerHTML = '<i class="fa-solid fa-location-dot me-2"></i>' +
+        suggestion.replace(/[&<>"']/g, (char) => ({
+          '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+        })[char]);
+
+      item.addEventListener('click', () => {
+        searchInput.value = suggestion;
+        hideSuggestions();
+        searchForm.submit();
+      });
+
+      suggestionsBox.appendChild(item);
+    });
+
+    suggestionsBox.style.display = 'block';
+  };
+
+  searchInput.addEventListener('input', () => {
+    clearTimeout(timer);
+    const query = searchInput.value.trim();
+    const currentRequest = ++requestId;
+
+    if (query.length < 2) {
+      hideSuggestions();
+      return;
+    }
+
+    timer = setTimeout(async () => {
+      try {
+        const response = await fetch('/listings/suggestions?q=' + encodeURIComponent(query));
+        if (!response.ok) throw new Error('Suggestion request failed');
+
+        const suggestions = await response.json();
+        if (currentRequest === requestId) {
+          showSuggestions(suggestions);
+        }
+      } catch (error) {
+        if (currentRequest === requestId) {
+          hideSuggestions();
+        }
+      }
+    }, 250);
+  });
+
+  searchInput.addEventListener('focus', () => {
+    if (searchInput.value.trim().length >= 2) {
+      searchInput.dispatchEvent(new Event('input'));
+    }
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!searchForm.contains(event.target)) {
+      hideSuggestions();
+    }
+  });
+})();
+</script>
